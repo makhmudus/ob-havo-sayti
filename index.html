@@ -4,6 +4,13 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Osmon — Dunyo ob-havosi</title>
+  <script>
+    (function () {
+      var saved = localStorage.getItem('osmon-theme');
+      var theme = saved || (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css" />
@@ -19,16 +26,9 @@
     <div class="particles" id="particles"></div>
   </div>
 
-  <!-- Yuqori navbar — har bir tugma ishlaydi (bo'limga scroll qiladi) -->
+  <!-- Yuqori navbar — brend va boshqaruvlar -->
   <nav class="navbar" id="navbar">
     <a href="#top" class="brand">🌤 Osmon</a>
-    <div class="nav-links">
-      <a href="#top" class="nav-link">Bosh sahifa</a>
-      <a href="#hourly" class="nav-link">Soatlik</a>
-      <a href="#daily" class="nav-link">Haftalik</a>
-      <a href="#details" class="nav-link">Tafsilotlar</a>
-      <a href="#astro" class="nav-link">Quyosh &amp; Oy</a>
-    </div>
     <form class="search" id="searchForm">
       <input type="text" id="cityInput" placeholder="Shahar qidirish…" autocomplete="off" />
       <button type="submit" aria-label="Qidirish">
@@ -38,6 +38,39 @@
       </button>
     </form>
     <button class="geo-btn" id="geoBtn" title="Mening joylashuvim">📍</button>
+    <button class="theme-toggle" id="themeToggle" title="Rejimni almashtirish">🌙</button>
+  </nav>
+
+  <!-- Suzuvchi pastki dock — bo'limlar orasida almashish, "bead" ni sudrab ham bo'ladi -->
+  <nav class="dock" id="dock" aria-label="Bo'limlar">
+    <div class="dock__bar" id="dockBar">
+      <span class="dock__bead" id="dockBead"></span>
+
+      <button class="dock__tab" data-target="#top" aria-current="page">
+        <svg class="dock__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9a1 1 0 0 0 1 1H9a1 1 0 0 0 1-1v-4h4v4a1 1 0 0 0 1 1h2.5a1 1 0 0 0 1-1v-9"/></svg>
+        <span class="dock__label">Bosh sahifa</span>
+      </button>
+
+      <button class="dock__tab" data-target="#hourly">
+        <svg class="dock__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>
+        <span class="dock__label">Soatlik</span>
+      </button>
+
+      <button class="dock__tab" data-target="#daily">
+        <svg class="dock__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 9.5h17M8 3v3.5M16 3v3.5"/></svg>
+        <span class="dock__label">Haftalik</span>
+      </button>
+
+      <button class="dock__tab" data-target="#details">
+        <svg class="dock__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="7.5" height="7.5" rx="1.5"/><rect x="13" y="3.5" width="7.5" height="7.5" rx="1.5"/><rect x="3.5" y="13" width="7.5" height="7.5" rx="1.5"/><rect x="13" y="13" width="7.5" height="7.5" rx="1.5"/></svg>
+        <span class="dock__label">Tafsilotlar</span>
+      </button>
+
+      <button class="dock__tab" data-target="#astro">
+        <svg class="dock__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v3M12 18.5v3M21.5 12h-3M5.5 12h-3M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1M18.4 18.4l-2.1-2.1M7.7 7.7 5.6 5.6"/></svg>
+        <span class="dock__label">Quyosh &amp; Oy</span>
+      </button>
+    </div>
   </nav>
 
   <main class="page" id="top">
@@ -96,3 +129,4 @@
   <script src="script.js"></script>
 </body>
 </html>
+
