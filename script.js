@@ -1,12 +1,7 @@
-/* ============================================
-   OSMON — script.js
-   Ma'lumot manbasi: Open-Meteo API (bepul, kalit kerak emas)
-   ============================================ */
-
-// ---------- DOM elementlar ----------
 const searchForm   = document.getElementById('searchForm');
 const cityInput    = document.getElementById('cityInput');
 const geoBtn       = document.getElementById('geoBtn');
+const themeToggle  = document.getElementById('themeToggle');
 const statusEl     = document.getElementById('status');
 const topBtn       = document.getElementById('topBtn');
 
@@ -65,8 +60,10 @@ function weatherInfo(code) { return WMO[code] || { text: "Noma'lum", icon: "🌡
 const HAFTA = ["Yak", "Dush", "Sesh", "Chor", "Pay", "Jum", "Shan"];
 
 // ---------- Fonni ob-havoga qarab yangilash ----------
-function updateSky(group, isDay) {
-  const palettes = {
+let lastSky = null; // rejim almashganda fonni qayta chizish uchun oxirgi ob-havo
+
+const SKY_PALETTES = {
+  dark: {
     clear_day:   ["#2e1a55", "#472583"],
     clear_night: ["#0f0720", "#1e0f38"],
     cloud_day:   ["#241241", "#3d2170"],
@@ -75,7 +72,23 @@ function updateSky(group, isDay) {
     rain_night:  ["#080413", "#170c2b"],
     snow_day:    ["#241241", "#4a2f78"],
     snow_night:  ["#0d0720", "#221241"],
-  };
+  },
+  light: {
+    clear_day:   ["#f3ecff", "#e0d2ff"],
+    clear_night: ["#e9e2f7", "#d4c6ed"],
+    cloud_day:   ["#eef0fb", "#dbdef2"],
+    cloud_night: ["#e4e2f0", "#cfcbe4"],
+    rain_day:    ["#e6ecff", "#c9d5f4"],
+    rain_night:  ["#dbe0f0", "#c0c7e2"],
+    snow_day:    ["#f6f2ff", "#e6dffb"],
+    snow_night:  ["#eae6f5", "#dad3eb"],
+  },
+};
+
+function updateSky(group, isDay) {
+  lastSky = { group, isDay };
+  const theme = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+  const palettes = SKY_PALETTES[theme];
   const key = `${group}_${isDay ? "day" : "night"}`;
   const [top, bottom] = palettes[key] || palettes.cloud_day;
 
@@ -358,6 +371,116 @@ function useMyLocation() {
 
 function setStatus(text) { statusEl.textContent = text; }
 
+// ---------- Pastki dock: bead harakati, bosish va sudrash ----------
+const dockBar  = document.getElementById('dockBar');
+const dockBead = document.getElementById('dockBead');
+const dockTabs = Array.from(document.querySelectorAll('.dock__tab'));
+
+let activeTabIndex = 0;
+let isDraggingBead = false;
+let isProgrammaticScroll = false;
+let programmaticScrollTimer = null;
+
+function tabCenterX(tab) { return tab.offsetLeft + tab.offsetWidth / 2; }
+
+function moveBeadToTab(index, animate = true) {
+  const tab = dockTabs[index];
+  if (!tab) return;
+  const x = tabCenterX(tab) - dockBead.offsetWidth / 2;
+  dockBead.style.transition = animate ? '' : 'none';
+  dockBead.style.transform = `translateX(${x}px)`;
+  if (!animate) dockBead.offsetHeight; // reflow, keyingi harakatlar animatsiyali bo'lishi uchun
+}
+
+function setActiveTab(index, { scroll = false, animate = true } = {}) {
+  if (index === activeTabIndex && !scroll) return;
+  activeTabIndex = index;
+  dockTabs.forEach((tab, i) => {
+    if (i === index) tab.setAttribute('aria-current', 'page');
+    else tab.removeAttribute('aria-current');
+  });
+  moveBeadToTab(index, animate);
+  if (scroll) {
+    const target = document.querySelector(dockTabs[index].dataset.target);
+    if (target) {
+      isProgrammaticScroll = true;
+      clearTimeout(programmaticScrollTimer);
+      // scroll tugaguncha kuzatuvchi boshqa bo'limlarga "sirg'anib" ketmasin
+      programmaticScrollTimer = setTimeout(() => { isProgrammaticScroll = false; }, 900);
+      target.scrollIntoView({ behavior: 'smooth' });
+    }
+  }
+}
+
+dockTabs.forEach((tab, i) => {
+  tab.addEventListener('click', () => setActiveTab(i, { scroll: true }));
+});
+
+// Zamonaviy brauzerlarda scroll to'xtashini aniq bilish uchun (uzun sahifalarda 900ms yetmasligi mumkin)
+window.addEventListener('scrollend', () => {
+  clearTimeout(programmaticScrollTimer);
+  isProgrammaticScroll = false;
+});
+
+window.addEventListener('load', () => moveBeadToTab(activeTabIndex, false));
+window.addEventListener('resize', () => moveBeadToTab(activeTabIndex, false));
+
+// Bo'lim scroll bilan ko'rinishga kirganda mos tabni faollashtirish
+const dockSections = dockTabs
+  .map(tab => document.querySelector(tab.dataset.target))
+  .filter(Boolean);
+
+const dockObserver = new IntersectionObserver((entries) => {
+  if (isDraggingBead || isProgrammaticScroll) return;
+  const visible = entries.filter(e => e.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio);
+  if (!visible.length) return;
+  const idx = dockSections.indexOf(visible[0].target);
+  if (idx !== -1) setActiveTab(idx);
+}, { rootMargin: '-40% 0px -40% 0px', threshold: [0.1, 0.25, 0.5, 0.75] });
+
+dockSections.forEach(section => dockObserver.observe(section));
+
+// Bead ni sudrab, eng yaqin tabga "yopishtirish"
+function beadPointerDown(e) {
+  isDraggingBead = true;
+  dockBead.setPointerCapture(e.pointerId);
+  dockBead.style.transition = 'none';
+}
+
+function beadPointerMove(e) {
+  if (!isDraggingBead) return;
+  const barRect = dockBar.getBoundingClientRect();
+  const min = 0;
+  const max = dockBar.clientWidth - dockBead.offsetWidth;
+  let x = e.clientX - barRect.left - dockBead.offsetWidth / 2;
+  x = Math.max(min, Math.min(max, x));
+  dockBead.style.transform = `translateX(${x}px)`;
+
+  const beadCenter = x + dockBead.offsetWidth / 2;
+  let nearest = 0, nearestDist = Infinity;
+  dockTabs.forEach((tab, i) => {
+    const dist = Math.abs(tabCenterX(tab) - beadCenter);
+    if (dist < nearestDist) { nearestDist = dist; nearest = i; }
+  });
+  dockTabs.forEach((tab, i) => {
+    if (i === nearest) tab.setAttribute('aria-current', 'page');
+    else tab.removeAttribute('aria-current');
+  });
+  activeTabIndex = nearest;
+}
+
+function beadPointerUp(e) {
+  if (!isDraggingBead) return;
+  isDraggingBead = false;
+  dockBead.style.transition = '';
+  setActiveTab(activeTabIndex, { scroll: true, animate: true });
+}
+
+dockBead.addEventListener('pointerdown', beadPointerDown);
+dockBead.addEventListener('pointermove', beadPointerMove);
+dockBead.addEventListener('pointerup', beadPointerUp);
+dockBead.addEventListener('pointercancel', beadPointerUp);
+
 // ---------- Voqea tinglovchilar (barcha tugmalar shu yerda ishga tushadi) ----------
 searchForm.addEventListener('submit', (e) => {
   e.preventDefault();
@@ -367,6 +490,26 @@ searchForm.addEventListener('submit', (e) => {
 
 geoBtn.addEventListener('click', useMyLocation);
 topBtn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+
+// ---------- Yorug' / qorong'u rejim ----------
+function applyThemeIcon(theme) {
+  themeToggle.textContent = theme === 'light' ? '☀️' : '🌙';
+  themeToggle.title = theme === 'light' ? 'Tungi rejimga o\'tish' : 'Kunduzgi rejimga o\'tish';
+}
+
+function setTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem('osmon-theme', theme);
+  applyThemeIcon(theme);
+  if (lastSky) updateSky(lastSky.group, lastSky.isDay);
+}
+
+applyThemeIcon(document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark');
+
+themeToggle.addEventListener('click', () => {
+  const current = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+  setTheme(current === 'light' ? 'dark' : 'light');
+});
 
 // ---------- Boshlang'ich holat: Toshkent ob-havosi bilan ochiladi ----------
 loadWeather(41.3111, 69.2797, "Toshkent, O'zbekiston");
